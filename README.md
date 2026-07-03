@@ -9,7 +9,7 @@ lets the user construct a custom options book and stress-test it with
 Monte Carlo-based Value-at-Risk, Expected Shortfall, and delta-hedging
 analysis.
 
-*Live Demo*
+## Live Demo
 *https://nakul-options-pricer.streamlit.app/*
 
 ## What the Tool Does
