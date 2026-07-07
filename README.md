@@ -1,18 +1,14 @@
 # Options Pricing & Risk Management Tool
 
-An interactive Streamlit application for pricing and risk-managing a book of
-European vanilla options against **live market data**, built around a
-volatility-surface-calibrated Monte Carlo pricing engine. The user picks any
-real, listed stock ticker, the app pulls its live option chain, backs out
-implied volatilities, calibrates a local volatility surface (SVI), and then
-lets the user construct a custom options book and stress-test it with
-Monte Carlo-based Value-at-Risk, Expected Shortfall, and delta-hedging
-analysis.
+An interactive Streamlit application for pricing and risk-managing a book of European vanilla options against live market data, built around a volatility-surface-calibrated Monte Carlo pricing engine. The user picks any real, listed stock ticker, the app pulls its live option chain, backs out implied volatilities, calibrates a local volatility surface (SVI), and lets the user construct a custom options book and stress-test it with Monte Carlo-based Value-at-Risk, Expected Shortfall, and delta-hedging analysis.
+
+Built as a portfolio project for Quantitative Analyst / Financial Technology roles, extending a university derivatives-pricing coursework (implied volatility surface construction, SVI calibration, Monte Carlo VaR/Expected Shortfall, and delta-hedging on a static dataset) into a live-market, interactive tool.
 
 ## Live Demo
-*https://nakul-options-pricer.streamlit.app/*
 
-## What the Tool Does
+[https://nakul-options-pricer.streamlit.app/](https://nakul-options-pricer.streamlit.app/)
+
+## Key Features
 
 - Pulls a live option chain for any ticker (e.g. `AAPL`, `TSLA`, `SPY`) via `yfinance`
 - Cleans the chain (removes illiquid/zero-quote contracts) and computes mid-prices
@@ -26,58 +22,38 @@ analysis.
 - Computes the book's Greeks (Delta, Gamma, Vega, Theta, Rho) via bump-and-revalue and tracks how they evolve over time as expiry approaches
 - Presents every step through interactive Plotly charts in a multi-tab Streamlit dashboard
 
-## The Mathematical Pipeline, in Plain English
+## Methodology
 
-1. **Implied volatility.** Every option's market price embeds the market's
-   own view of future volatility. We invert the Black-Scholes formula
-   (using a numerical root-finder, Brent's method) to recover that implied
-   volatility for every contract in the chain.
+1. Implied volatility: every option's market price embeds the market's own view of future volatility. The Black-Scholes formula is inverted (using a numerical root-finder, Brent's method) to recover implied volatility for every contract in the chain.
+2. Volatility surface calibration: implied volatility varies by strike (skew) and by maturity (term structure) rather than staying flat. A smooth parametric surface, SVI (Stochastic Volatility Inspired), the parameterisation used by real trading desks, is fit through the scattered market points, giving a usable volatility number everywhere on the (time, spot) plane rather than only at the strikes that happened to be quoted. A simpler quadratic model is fit alongside it as a benchmark.
+3. Monte Carlo simulation: thousands of possible future paths for the stock price are simulated. Two different simulations are run for two different jobs: a real-world simulation (using the stock's actual expected return) for risk scenarios, and a risk-neutral simulation (using the risk-free rate) for pricing. Mixing these two up is a common and serious pricing error.
+4. Book valuation: each option in the user's book is priced as a discounted average of its simulated payoffs under the risk-neutral measure. Long positions add value; short positions subtract it.
+5. Risk metrics: the book is revalued across thousands of real-world future scenarios to build a P&L distribution. From that distribution, VaR (the loss exceeded only 1% of the time) and Expected Shortfall (the average loss in that worst 1%, the metric regulators under Basel/FRTB increasingly prefer since it captures tail severity rather than just a threshold) are computed.
+6. Delta hedging: the book's sensitivity to the underlying ("delta") is estimated daily via bump-and-revalue, and an offsetting stock position is taken and rebalanced every day. The tool quantifies exactly how much this reduces P&L volatility, VaR, and ES.
+7. Greeks: beyond delta, the book's full risk sensitivities (Gamma, Vega, Theta, and Rho) are estimated the same way, via central bump-and-revalue (nudging spot, volatility, time, and the risk-free rate up and down and repricing) under the calibrated local volatility surface, using common random numbers so each bumped pair isn't affected by fresh Monte Carlo noise. The tool also tracks how these Greeks evolve purely from time passing, with spot held fixed, up to the book's shortest expiry.
 
-2. **Volatility surface calibration.** Implied volatility isn't flat — it
-   varies by strike (skew) and by maturity (term structure). We fit a
-   smooth parametric surface, **SVI** (Stochastic Volatility Inspired) — the
-   parameterisation real trading desks use — through the scattered market
-   points, so we have a usable volatility number everywhere on the
-   (time, spot) plane, not just at the strikes that happened to be quoted.
-   A simpler quadratic model is fit alongside it as a benchmark.
+## Repo Structure
 
-3. **Monte Carlo simulation.** We simulate thousands of possible future
-   paths for the stock price. Crucially, two different simulations are run
-   for two different jobs: a **real-world** simulation (using the stock's
-   actual expected return) for risk scenarios, and a **risk-neutral**
-   simulation (using the risk-free rate) for pricing — mixing these up is a
-   classic and serious pricing error.
+```
+options-pricer/
+├── app.py                  # Streamlit application entry point
+├── requirements.txt
+└── src/
+    ├── data_ingestion.py   # Live option chain retrieval and cleaning (yfinance)
+    ├── implied_vol.py      # BSM pricing and implied volatility inversion
+    ├── vol_surface.py      # SVI / quadratic local volatility calibration
+    ├── monte_carlo.py      # Real-world and risk-neutral path simulation
+    ├── pricing.py          # Option/book Monte Carlo valuation and delta
+    ├── risk.py             # VaR, Expected Shortfall, delta-hedge simulation
+    ├── greeks.py           # Delta/Gamma/Vega/Theta/Rho via bump-and-revalue, over time
+    └── plotting.py         # All Plotly chart functions
+```
 
-4. **Book valuation.** Each option in the user's book is priced as a
-   discounted average of its simulated payoffs under the risk-neutral
-   measure. Long positions add value; short positions subtract it.
-
-5. **Risk metrics.** The book is revalued across thousands of real-world
-   future scenarios to build a P&L distribution. From that distribution we
-   compute **VaR** (the loss exceeded only 1% of the time) and **Expected
-   Shortfall** (the average loss in that worst 1% — the metric regulators
-   under Basel/FRTB increasingly prefer, since it captures tail severity,
-   not just a threshold).
-
-6. **Delta hedging.** The book's sensitivity to the underlying ("delta") is
-   estimated daily via bump-and-revalue, and an offsetting stock position
-   is taken and rebalanced every day. The tool quantifies exactly how much
-   this reduces P&L volatility, VaR, and ES.
-
-7. **Greeks.** Beyond delta, the book's full risk sensitivities — Gamma,
-   Vega, Theta, and Rho — are estimated the same way, via central
-   bump-and-revalue (nudging spot, volatility, time, and the risk-free
-   rate up and down and repricing) under the calibrated local volatility
-   surface, using common random numbers so each bumped pair isn't
-   contaminated by fresh Monte Carlo noise. The tool also tracks how these
-   Greeks evolve purely from time passing, with spot held fixed, up to the
-   book's shortest expiry.
-
-## How to Install and Run Locally
+## Installation & Running Locally
 
 ```bash
-git clone <your-repo-url>
-cd options-pricing-tool
+git clone https://github.com/NakulPillai2407/options-pricer.git
+cd options-pricer
 python -m venv .venv && source .venv/bin/activate   # optional but recommended
 pip install -r requirements.txt
 streamlit run app.py
@@ -85,42 +61,23 @@ streamlit run app.py
 
 Then open the local URL Streamlit prints (typically `http://localhost:8501`).
 
-## Project Structure
+## Tech Stack
 
-```
-options-pricing-tool/
-├── app.py                  # Streamlit application entry point
-├── src/
-│   ├── data_ingestion.py   # Live option chain retrieval & cleaning (yfinance)
-│   ├── implied_vol.py      # BSM pricing + implied volatility inversion
-│   ├── vol_surface.py      # SVI / quadratic local volatility calibration
-│   ├── monte_carlo.py      # Real-world & risk-neutral path simulation
-│   ├── pricing.py          # Option/book Monte Carlo valuation & delta
-│   ├── risk.py             # VaR, Expected Shortfall, delta-hedge simulation
-│   ├── greeks.py           # Delta/Gamma/Vega/Theta/Rho via bump-and-revalue, over time
-│   └── plotting.py         # All Plotly chart functions
-├── requirements.txt
-└── README.md
-```
+- Python: numpy, scipy (Brent root-finding, L-BFGS-B optimisation, interpolation), pandas
+- Streamlit: interactive web app framework
+- Plotly: interactive charting
+- [yfinance](https://github.com/ranaroussi/yfinance): live market data (option chains, spot prices, Treasury yields)
 
-## Screenshots
+## Limitations
 
-*(Add screenshots here once you've run the app — e.g. the implied vol
-surface, the SVI calibration fit, the fan chart, and the naked-vs-hedged
-P&L comparison.)*
+Pricing and risk outputs depend on the quality of the volatility surface calibration, which can be unstable for illiquid tickers with sparse option chains. Monte Carlo estimates carry simulation error that only shrinks with more simulated paths.
 
-## Technologies Used
+This is an educational tool built for portfolio purposes. It is not financial advice and should not be used for live trading or risk decisions.
 
-- **Python** — numpy, scipy (Brent root-finding, L-BFGS-B optimisation, interpolation), pandas
-- **Streamlit** — interactive web app framework
-- **Plotly** — interactive charting
-- **yfinance** — live market data (option chains, spot prices, Treasury yields)
+## Author
 
-## Background
+**Nakul Pillai**
+BSc Economics & Data Science, University of Southampton · Incoming MSc Financial Technology, Imperial College London
 
-This project was developed from a university derivatives pricing coursework
-(implied volatility surface construction, SVI local volatility calibration,
-Monte Carlo simulation, VaR/Expected Shortfall, and delta-hedging analysis
-on a fictional stock with a static dataset) and extended into a real-world,
-interactive tool that runs the same pipeline against **live market data**
-for any listed ticker.
+- LinkedIn: [linkedin.com/in/nakul-pillai](https://www.linkedin.com/in/nakul-pillai)
+- GitHub: [@NakulPillai2407](https://github.com/NakulPillai2407)
