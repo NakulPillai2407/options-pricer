@@ -77,7 +77,7 @@ This is an educational tool built for portfolio purposes. It is not financial ad
 ## Author
 
 **Nakul Pillai**
-BSc Economics & Data Science, University of Southampton · Incoming MSc Financial Technology, Imperial College London
+BSc Economics & Data Science, University of Southampton · MSc Financial Technology, Imperial College London
 
 - LinkedIn: [linkedin.com/in/nakul-pillai](https://www.linkedin.com/in/nakul-pillai)
 - GitHub: [@NakulPillai2407](https://github.com/NakulPillai2407)
